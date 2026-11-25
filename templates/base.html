@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Gestion de Parc Informatique{% endblock %}</title>
+
+    <!-- Design system -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <!-- Animations -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- ── Navigation ─────────────────────────────────────── -->
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="{{ url_for('inventory.index') }}" class="navbar-brand">
+                <span class="dot"></span>
+                IT Inventory
+            </a>
+            {% if current_user %}<button type="button" class="ai-assistant-trigger" id="aiAssistantTrigger" aria-label="Ouvrir l’assistant IA d’inventaire" aria-haspopup="dialog" aria-controls="aiAssistantModal" aria-expanded="false">
+                <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="9" width="20" height="17" rx="5"/><path d="M16 4v5M12 4h8M3 16h3m20 0h3M11 15h.01M21 15h.01M12 21h8M9 26v2m14-2v2"/><circle cx="11" cy="4" r="1"/><circle cx="21" cy="4" r="1"/></svg>
+                <span class="ai-trigger-pulse" aria-hidden="true"></span>
+            </button>{% endif %}
+            <div class="navbar-actions">
+                {% if current_user %}
+                <span class="navbar-badge">{{ current_user.username }}</span>
+                <div class="accessories-menu">
+                    <a href="#" class="accessories-trigger" onclick="return false;">Accessoires</a>
+                    <div class="accessories-dropdown">
+                        {% for slug, label in [('disque-sauvegarde', 'Disque sauvegarde'), ('casques', 'Casques'), ('clavier', 'Clavier'), ('souris', 'Souris'), ('telephones', 'Téléphones')] %}
+                        <a href="{{ url_for('inventory.accessory_page', category=slug) }}">{{ label }}</a>
+                        {% endfor %}
+                        <a href="{{ url_for('inventory.accessory_page', category='sim-cards') }}">SIM Cards</a>
+                    </div>
+                </div>
+                <div class="accessories-menu movement-menu">
+                    <a href="#" class="accessories-trigger" onclick="return false;">Mouvement</a>
+                    <div class="accessories-dropdown">
+                        <a href="{{ url_for('inventory.discharge_index') }}">Décharge</a>
+                        <a href="{{ url_for('inventory.restitution_index') }}">Restitution</a>
+                    </div>
+                </div>
+                {% if current_user.is_admin or current_user.access_level in ['write', 'full'] %}
+                <div class="file-menu">
+                    <a href="#" class="file-trigger" onclick="return false;">Fichier</a>
+                    <div class="file-dropdown">
+                        {% if current_user.access_level in ['write', 'full'] %}<a href="{{ url_for('inventory.excel_import_page') }}">Importer depuis Excel</a>{% endif %}
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('inventory.database_backup') }}">Save Database</a>
+                        <form method="POST" action="{{ url_for('inventory.database_restore') }}" enctype="multipart/form-data">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <label class="file-option">Load Database<input type="file" name="database" accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3" required onchange="this.form.submit()" aria-label="Charger la base de données"></label>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                <div class="contact-menu">
+                    <button type="button" class="contact-trigger" aria-label="Contact et options du compte">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0M19 5v5m-2.5-2.5h5"/></svg>
+                    </button>
+                    <div class="contact-dropdown">
+                        {% if current_user.is_admin %}<a class="contact-option" href="{{ url_for('auth.user_management') }}">User Management</a>{% endif %}
+                        <form method="POST" action="{{ url_for('auth.logout') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="contact-option btn-logout" type="submit">Log Out <span>(Se déconnecter)</span></button>
+                        </form>
+                    </div>
+                </div>
+                <div class="helpdesk-menu">
+                    <button type="button" class="helpdesk-menu-trigger" aria-label="Helpdesk menu" aria-haspopup="true">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13v-1a8 8 0 0 1 16 0v1"/><path d="M4 13h3v6H6a2 2 0 0 1-2-2v-4Zm16 0h-3v6h1a2 2 0 0 0 2-2v-4ZM17 19a5 5 0 0 1-5 3h-1"/><path d="M10 22h2"/></svg>
+                    </button>
+                    <div class="helpdesk-menu-dropdown">
+                        {% if current_user.is_admin %}<a href="{{ url_for('helpdesk.management') }}">Helpdesk</a>{% endif %}
+                        <a href="{{ url_for('helpdesk.submit_request') }}">Helpdesk Request</a>
+                    </div>
+                </div>
+                {% else %}<a class="dashboard-nav-link" href="{{ url_for('auth.login') }}">IT admin</a>{% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- ── Page content ───────────────────────────────────── -->
+    {% if current_user %}
+    <div class="ai-assistant-overlay hidden" id="aiAssistantModal" aria-hidden="true">
+        <section class="ai-assistant-dialog" role="dialog" aria-modal="true" aria-labelledby="aiAssistantTitle">
+            <header class="ai-assistant-header">
+                <div class="ai-assistant-brandmark" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="6" y="9" width="20" height="17" rx="5"/><path d="M16 4v5M12 4h8M3 16h3m20 0h3M11 15h.01M21 15h.01M12 21h8M9 26v2m14-2v2"/></svg></div>
+                <div><span class="ai-kicker">INVENTORY INTELLIGENCE</span><h2 id="aiAssistantTitle">Assistant de parc</h2></div>
+                <button type="button" class="ai-close" id="aiAssistantClose" aria-label="Fermer">×</button>
+            </header>
+            <div class="ai-scanner" id="aiScanner" aria-live="polite">
+                <div class="ai-robot-stage" aria-hidden="true">
+                    <div class="ai-orbit ai-orbit-one"></div><div class="ai-orbit ai-orbit-two"></div>
+                    <div class="ai-robot"><div class="ai-robot-antenna"></div><div class="ai-robot-face"><i></i><i></i><b></b></div><div class="ai-robot-neck"></div><div class="ai-robot-body"><span></span><span></span><span></span></div></div>
+                    <div class="ai-scan-line"></div>
+                </div>
+                <span class="ai-scan-label">ANALYSE EN COURS</span>
+                <p class="ai-scan-status" id="aiScanStatus">Connexion au registre d’inventaire…</p>
+                <div class="ai-progress-track" role="progressbar" aria-label="Progression de l’analyse" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="aiProgressTrack"><span id="aiProgressBar"></span></div>
+                <div class="ai-progress-meta"><span>SCAN EN DIRECT</span><strong id="aiProgressValue">0%</strong></div>
+                <button type="button" class="ai-retry hidden" id="aiRetry">Réessayer l’analyse</button>
+            </div>
+            <div class="ai-results hidden" id="aiResults" aria-live="polite">
+                <div class="ai-results-summary"><div class="ai-summary-icon" aria-hidden="true">⌁</div><div><strong id="aiResultHeadline">Analyse terminée</strong><span id="aiResultSubhead"></span></div><span class="ai-live-pill"><i></i> LIVE</span></div>
+                <div class="ai-results-list" id="aiResultsList"></div>
+            </div>
+            <footer class="ai-assistant-footer"><span class="ai-secure-dot"></span><span>Basé sur les décharges et restitutions enregistrées</span><span class="ai-updated" id="aiUpdatedAt"></span></footer>
+        </section>
+    </div>
+    {% endif %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_scripts %}{% endblock %}
+    {% if current_user %}<script src="{{ url_for('static', filename='js/ai_assistant.js') }}" defer></script>{% endif %}
+</body>
+</html>
